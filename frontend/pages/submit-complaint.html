@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Submit Complaint — Campus Portal</title>
+  <link rel="stylesheet" href="../css/styles.css"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="container navbar-inner">
+    <div class="navbar-brand">
+      <div class="brand-icon">🎓</div>
+      <div><span class="brand-name">Campus Portal</span><span class="brand-sub">Issue Reporting System</span></div>
+    </div>
+    <div class="navbar-user">
+      <span class="user-badge" id="user-badge">Student</span>
+      <button class="btn-logout" id="logout-btn">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="page-header">
+  <div class="container page-title-area">
+    <div>
+      <h1 class="page-title">Submit Complaint</h1>
+      <p class="page-subtitle">Report a campus issue — we'll get it resolved.</p>
+    </div>
+    <a href="student-dashboard.html" class="btn btn-outline">← Back to Dashboard</a>
+  </div>
+</div>
+
+<div style="padding:2rem 0 4rem;">
+  <div class="container">
+    <div class="card submit-card fade-in-up">
+      <div class="card-header">
+        <span class="card-title">New Issue Report</span>
+        <span style="font-size:.8rem;color:var(--gray-400);">Fields marked * are required</span>
+      </div>
+      <div class="card-body">
+        <div id="success" class="alert alert-success"></div>
+        <div id="err"     class="alert alert-error"></div>
+
+        <div class="form-group">
+          <label class="form-label" for="cat">Issue Category *</label>
+          <select id="cat" class="form-control">
+            <option value="">— Select a category —</option>
+            <option value="Electricity">⚡ Electricity</option>
+            <option value="Water">💧 Water</option>
+            <option value="Cleanliness">🧹 Cleanliness</option>
+            <option value="WiFi">📶 WiFi</option>
+            <option value="Classroom">🏫 Classroom</option>
+            <option value="Hostel">🏠 Hostel</option>
+            <option value="Other">📌 Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="desc">Description *</label>
+          <textarea id="desc" class="form-control" maxlength="2000"
+            placeholder="Describe the issue in detail. Include location, time, and any relevant info…"></textarea>
+          <div class="char-hint"><span id="cc">0</span> / 2000</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Attach Image <span style="color:var(--gray-400);font-weight:400;">(optional)</span></label>
+          <div class="file-upload-area" id="upload-area">
+            <input type="file" id="img-input" accept="image/jpeg,image/png,image/gif,image/webp"/>
+            <div id="upload-ph">
+              <div class="upload-icon">🖼️</div>
+              <div class="upload-text">Click or drag an image here</div>
+              <div class="upload-hint">JPEG, PNG, GIF or WEBP — max 5 MB</div>
+            </div>
+            <img id="preview" class="preview-img" alt="Preview"/>
+          </div>
+          <div id="file-meta" style="display:flex;align-items:center;justify-content:space-between;margin-top:.4rem;">
+            <div id="fname" style="font-size:.76rem;color:var(--gray-600);"></div>
+            <button type="button" id="remove-img-btn" class="btn btn-outline btn-sm" style="display:none;padding:.2rem .6rem;font-size:.72rem;">✕ Remove photo</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:1rem;margin-top:1.5rem;">
+          <button class="btn btn-primary" id="submit-btn" style="flex:1;">Submit Complaint</button>
+          <a href="student-dashboard.html" class="btn btn-outline" style="flex:0 0 auto;">Cancel</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="../js/api.js"></script>
+<script>
+  let selectedFile = null;
+
+  // Guard
+  (async () => {
+    const user = await Auth.me();
+    if (!user || user.role !== 'STUDENT') { location.href = 'index.html'; return; }
+    sessionStorage.setItem('cp_user', JSON.stringify(user));
+    initNavbar('index.html');
+  })();
+
+  // Character counter
+  document.getElementById('desc').addEventListener('input', function () {
+    document.getElementById('cc').textContent = this.value.length;
+  });
+
+  const uploadArea = document.getElementById('upload-area');
+  const imgInput   = document.getElementById('img-input');
+  const preview    = document.getElementById('preview');
+  const uploadPh   = document.getElementById('upload-ph');
+  const fname      = document.getElementById('fname');
+  const removeBtn  = document.getElementById('remove-img-btn');
+
+  function handleFile(file) {
+    if (!file) return;
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      showToast('Please select a valid image file (JPG, PNG, GIF, WEBP)', 'error');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image size exceeds the 5 MB limit', 'error');
+      return;
+    }
+
+    selectedFile = file;
+    fname.textContent = 'Selected: ' + file.name;
+    removeBtn.style.display = 'inline-flex';
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+      uploadPh.style.opacity = '.3';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  imgInput.addEventListener('change', function () {
+    if (this.files[0]) handleFile(this.files[0]);
+  });
+
+  // Drag and Drop
+  ['dragenter', 'dragover'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadArea.style.borderColor = 'var(--teal)';
+      uploadArea.style.background = 'rgba(26, 158, 143, .05)';
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadArea.style.borderColor = '';
+      uploadArea.style.background = '';
+    });
+  });
+
+  uploadArea.addEventListener('drop', e => {
+    const dt = e.dataTransfer;
+    if (dt && dt.files && dt.files[0]) {
+      handleFile(dt.files[0]);
+    }
+  });
+
+  // Remove photo action
+  removeBtn.addEventListener('click', () => {
+    selectedFile = null;
+    imgInput.value = '';
+    preview.src = '';
+    preview.style.display = 'none';
+    uploadPh.style.opacity = '1';
+    fname.textContent = '';
+    removeBtn.style.display = 'none';
+  });
+
+  // Submit Complaint
+  document.getElementById('submit-btn').addEventListener('click', async () => {
+    const category    = document.getElementById('cat').value;
+    const description = document.getElementById('desc').value.trim();
+    const errEl       = document.getElementById('err');
+    const okEl        = document.getElementById('success');
+    const btn         = document.getElementById('submit-btn');
+
+    errEl.classList.remove('show');
+    okEl.classList.remove('show');
+
+    if (!category) {
+      errEl.textContent = 'Please select a category.';
+      errEl.classList.add('show');
+      return;
+    }
+    if (description.length < 10) {
+      errEl.textContent = 'Description must be at least 10 characters.';
+      errEl.classList.add('show');
+      return;
+    }
+
+    btn.disabled  = true;
+    btn.innerHTML = '<span class="spinner"></span> Submitting…';
+
+    try {
+      await ComplaintAPI.submit({ category, description, imageFile: selectedFile });
+      okEl.textContent = '✅ Complaint submitted successfully! Redirecting…';
+      okEl.classList.add('show');
+      setTimeout(() => location.href = 'student-dashboard.html', 1500);
+    } catch (err) {
+      errEl.textContent = err.message || 'Failed to submit complaint.';
+      errEl.classList.add('show');
+      btn.disabled  = false;
+      btn.textContent = 'Submit Complaint';
+    }
+  });
+</script>
+</body>
+</html>

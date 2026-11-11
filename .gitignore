@@ -1,0 +1,18 @@
+# Ignore Backend dependencies
+backend/node_modules/
+backend/uploads/
+backend/.env
+.env
+node_modules
+
+# Ignore Frontend dependencies
+backend/node_modules/
+frontend/.build
+frontend/dist
+frontend/.env
+
+# OS files
+.DS_Store
+
+# Documentation
+antigravity.md
