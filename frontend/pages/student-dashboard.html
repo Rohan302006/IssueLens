@@ -109,22 +109,70 @@
 <script src="../js/api.js"></script>
 <script>
   let allComplaints = [];
+  let hasRenderedCache = false;
 
-  // Guard: redirect if not logged in
+  // ── 1. INSTANT SYNCHRONOUS CACHE HYDRATION (0ms Delay) ────────
+  // If the student previously loaded this page or cancelled submitting,
+  // restore UI immediately from sessionStorage with zero loading flicker.
+  const cachedUserStr = sessionStorage.getItem('cp_user');
+  let cachedUser = null;
+  if (cachedUserStr) {
+    try {
+      cachedUser = JSON.parse(cachedUserStr);
+      if (cachedUser && cachedUser.name) {
+        document.getElementById('welcome-msg').textContent =
+          `Welcome back, ${cachedUser.name}! Track and manage your complaints.`;
+      }
+      initNavbar('index.html');
+    } catch(e) {}
+  }
+
+  const cachedStatsStr = sessionStorage.getItem('cp_my_stats');
+  if (cachedStatsStr) {
+    try {
+      const s = JSON.parse(cachedStatsStr);
+      document.getElementById('s-total').textContent    = s.total ?? 0;
+      document.getElementById('s-pending').textContent  = s.pending ?? 0;
+      document.getElementById('s-progress').textContent = s.inProgress ?? 0;
+      document.getElementById('s-resolved').textContent = s.resolved ?? 0;
+    } catch(e) {}
+  }
+
+  const cachedComplaintsStr = sessionStorage.getItem('cp_my_complaints');
+  if (cachedComplaintsStr) {
+    try {
+      const parsed = JSON.parse(cachedComplaintsStr);
+      if (Array.isArray(parsed)) {
+        allComplaints = parsed;
+        render(allComplaints);
+        hasRenderedCache = true;
+        // Hide loading spinner immediately since cached UI is already rendered
+        document.getElementById('loading').classList.add('hidden');
+      }
+    } catch(e) {}
+  }
+
+  // ── 2. BACKGROUND REVALIDATION ─────────────────────────────────
+  // Re-verify session and fetch fresh data quietly in background
   (async () => {
     const user = await Auth.me();
     if (!user || user.role !== 'STUDENT') {
-      location.href = 'index.html'; return;
+      sessionStorage.removeItem('cp_user');
+      sessionStorage.removeItem('cp_my_complaints');
+      sessionStorage.removeItem('cp_my_stats');
+      location.href = 'index.html';
+      return;
     }
     sessionStorage.setItem('cp_user', JSON.stringify(user));
 
-    // Set welcome message and navbar
-    document.getElementById('welcome-msg').textContent =
-      `Welcome back, ${user.name}! Track and manage your complaints.`;
-    initNavbar('index.html');
+    if (!cachedUser || cachedUser.name !== user.name) {
+      document.getElementById('welcome-msg').textContent =
+        `Welcome back, ${user.name}! Track and manage your complaints.`;
+      initNavbar('index.html');
+    }
 
-    // Load data in parallel
-    await Promise.all([loadStats(), loadComplaints()]);
+    // Load data in background (or foreground if cache was empty)
+    await Promise.all([loadStats(), loadComplaints(hasRenderedCache)]);
   })();
 
   async function loadStats() {
@@ -134,20 +182,28 @@
       document.getElementById('s-pending').textContent  = s.pending ?? 0;
       document.getElementById('s-progress').textContent = s.inProgress ?? 0;
       document.getElementById('s-resolved').textContent = s.resolved ?? 0;
+      sessionStorage.setItem('cp_my_stats', JSON.stringify(s));
     } catch (e) {
       console.error('Stats error:', e);
     }
   }
 
-  async function loadComplaints() {
-    document.getElementById('loading').classList.remove('hidden');
+  async function loadComplaints(isBackground = false) {
+    // Only display full-screen loading spinner if no cached view was rendered
+    if (!isBackground) {
+      document.getElementById('loading').classList.remove('hidden');
+    }
     try {
-      allComplaints = await ComplaintAPI.getMy();
+      const freshComplaints = await ComplaintAPI.getMy();
+      allComplaints = freshComplaints;
+      sessionStorage.setItem('cp_my_complaints', JSON.stringify(allComplaints));
       render(allComplaints);
     } catch (e) {
-      showToast('Failed to load complaints: ' + e.message, 'error');
-      document.getElementById('loading').classList.add('hidden');
-      document.getElementById('empty').classList.remove('hidden');
+      if (!isBackground) {
+        showToast('Failed to load complaints: ' + e.message, 'error');
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('empty').classList.remove('hidden');
+      }
     }
   }
 

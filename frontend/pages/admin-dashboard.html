@@ -299,20 +299,91 @@
   let debounceStudents;
   let currentComplaints = [];
   let allStudents       = [];
+  let hasRenderedAdminCache = false;
 
-  // Guard + init
+  // ── 1. Synchronous Cache Hydration (0ms Instant Render) ─────────
+  const cachedUserStr = sessionStorage.getItem('cp_user');
+  if (cachedUserStr) {
+    try {
+      const u = JSON.parse(cachedUserStr);
+      if (u && u.username) {
+        document.getElementById('user-badge').textContent = u.username;
+      }
+    } catch(e) {}
+  }
+
+  const cachedAdminStats = sessionStorage.getItem('cp_admin_stats');
+  if (cachedAdminStats) {
+    try {
+      const s = JSON.parse(cachedAdminStats);
+      document.getElementById('s-total').textContent    = s.total ?? 0;
+      document.getElementById('s-pending').textContent  = s.pending ?? 0;
+      document.getElementById('s-progress').textContent = s.inProgress ?? 0;
+      document.getElementById('s-resolved').textContent = s.resolved ?? 0;
+      document.getElementById('tab-complaints-badge').textContent = s.total ?? 0;
+    } catch(e) {}
+  }
+
+  const cachedAdminComplaints = sessionStorage.getItem('cp_admin_complaints');
+  if (cachedAdminComplaints) {
+    try {
+      const parsed = JSON.parse(cachedAdminComplaints);
+      if (parsed && Array.isArray(parsed.items)) {
+        renderComplaintsTable(parsed);
+        hasRenderedAdminCache = true;
+        document.getElementById('loading').classList.add('hidden');
+      }
+    } catch(e) {}
+  }
+
+  const cachedStudentsStr = sessionStorage.getItem('cp_admin_students');
+  if (cachedStudentsStr) {
+    try {
+      const parsedStud = JSON.parse(cachedStudentsStr);
+      if (Array.isArray(parsedStud)) {
+        allStudents = parsedStud;
+        renderStudents(allStudents);
+        document.getElementById('tab-students-badge').textContent = allStudents.length;
+      }
+    } catch(e) {}
+  }
+
+  // ── 2. Background Revalidation & Session Guard ───────────────────
   (async () => {
-    const user = await Auth.me();
-    if (!user || user.role !== 'ADMIN') { location.href = 'admin-login.html'; return; }
-    sessionStorage.setItem('cp_user', JSON.stringify(user));
-    document.getElementById('user-badge').textContent = user.username || 'Admin';
+    const mePromise = Auth.me().then(user => {
+      if (!user || user.role !== 'ADMIN') {
+        sessionStorage.removeItem('cp_user');
+        sessionStorage.removeItem('cp_admin_complaints');
+        sessionStorage.removeItem('cp_admin_stats');
+        sessionStorage.removeItem('cp_admin_students');
+        location.href = 'admin-login.html';
+        return null;
+      }
+      sessionStorage.setItem('cp_user', JSON.stringify(user));
+      document.getElementById('user-badge').textContent = user.username || 'Admin';
+      return user;
+    }).catch(() => {
+      location.href = 'admin-login.html';
+      return null;
+    });
+
     document.getElementById('logout-btn').addEventListener('click', async () => {
       await Auth.logout();
       sessionStorage.removeItem('cp_user');
+      sessionStorage.removeItem('cp_admin_complaints');
+      sessionStorage.removeItem('cp_admin_stats');
+      sessionStorage.removeItem('cp_admin_students');
       location.href = 'admin-login.html';
     });
 
-    await Promise.all([loadStats(), load(0), loadStudents()]);
+    // Run complaints queries in parallel with Auth.me().
+    // Note: loadStudents() is intentionally NOT fired here to avoid pooling bottlenecks;
+    // it is lazy-loaded when the admin switches to the Students tab.
+    await Promise.all([
+      mePromise,
+      loadStats(),
+      load(0, hasRenderedAdminCache)
+    ]);
   })();
 
   // ── Tab Switcher ──────────────────────────────────────────────
@@ -332,7 +403,7 @@
       compBtn.classList.remove('active');
       studPane.classList.remove('hidden');
       compPane.classList.add('hidden');
-      if (!allStudents.length) loadStudents();
+      if (!allStudents.length) loadStudents(false);
     }
   }
 
@@ -345,101 +416,112 @@
       document.getElementById('s-progress').textContent = s.inProgress ?? 0;
       document.getElementById('s-resolved').textContent = s.resolved ?? 0;
       document.getElementById('tab-complaints-badge').textContent = s.total ?? 0;
+      sessionStorage.setItem('cp_admin_stats', JSON.stringify(s));
     } catch(e) { console.error('Stats:', e); }
   }
 
-  async function load(page = 0) {
+  async function load(page = 0, isBackground = false) {
     currentPage = page;
     const search   = document.getElementById('search').value.trim();
     const status   = document.getElementById('fstatus').value;
     const category = document.getElementById('fcat').value;
 
-    document.getElementById('loading').classList.remove('hidden');
-    document.getElementById('table-wrap').classList.add('hidden');
-    document.getElementById('empty').classList.add('hidden');
+    if (!isBackground) {
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('table-wrap').classList.add('hidden');
+      document.getElementById('empty').classList.add('hidden');
+    }
 
     try {
       const result = await ComplaintAPI.getAll({ search, status, category, page, size: 10 });
-      totalPages        = result.totalPages;
-      currentComplaints = result.items || [];
-
-      document.getElementById('loading').classList.add('hidden');
-
-      if (!currentComplaints.length) {
-        document.getElementById('empty').classList.remove('hidden');
-        document.getElementById('pagination').style.display = 'none';
-        return;
-      }
-
-      document.getElementById('table-wrap').classList.remove('hidden');
-      document.getElementById('tbody').innerHTML = currentComplaints.map(c => {
-        const fullImgUrl = getImageUrl(c.image_path);
-        return `
-        <tr>
-          <td style="font-size:.78rem;color:var(--gray-400);font-weight:600;">#${c.id}</td>
-          <td class="td-en">${escapeHtml(c.student_en_number)}</td>
-          <td style="white-space:nowrap;font-size:.85rem;">${escapeHtml(c.student_name || '—')}</td>
-          <td><span style="display:flex;align-items:center;gap:.3rem;white-space:nowrap;">
-            ${categoryIcon(c.category)}<span style="font-size:.83rem;">${escapeHtml(c.category)}</span>
-          </span></td>
-          <td class="td-desc"><div class="td-desc-text">${escapeHtml(c.description)}</div></td>
-          <td>
-            ${c.image_path
-              ? `<img src="${escapeHtml(fullImgUrl)}" style="width:46px;height:34px;object-fit:cover;border-radius:4px;border:1px solid var(--gray-100);cursor:pointer;"
-                   onclick="viewImg('${escapeHtml(fullImgUrl)}')" alt="img"/>`
-              : `<span style="color:var(--gray-400);font-size:.76rem;">None</span>`}
-          </td>
-          <td>
-            <select class="select-status" onchange="updateStatus(${c.id}, this.value)">
-              <option value="Pending"     ${c.status==='Pending'     ? 'selected':''}>Pending</option>
-              <option value="In_Progress" ${c.status==='In_Progress' ? 'selected':''}>In Progress</option>
-              <option value="Resolved"    ${c.status==='Resolved'    ? 'selected':''}>Resolved</option>
-            </select>
-          </td>
-          <td style="white-space:nowrap;font-size:.78rem;color:var(--gray-600);">${formatDate(c.created_at)}</td>
-          <td>
-            <div class="action-group">
-              <button class="btn btn-outline btn-sm" onclick="viewDetailById(${c.id})">View</button>
-              <button class="btn btn-danger btn-sm"  onclick="askDelete(${c.id})">Delete</button>
-            </div>
-          </td>
-        </tr>
-      `;
-      }).join('');
-
-      // Pagination
-      const pg = document.getElementById('pagination');
-      if (result.totalPages <= 1) { pg.style.display = 'none'; return; }
-      pg.style.display = 'flex';
-
-      const start = page * 10 + 1;
-      const end   = Math.min((page + 1) * 10, result.total);
-      document.getElementById('page-info').textContent = `Showing ${start}–${end} of ${result.total}`;
-      document.getElementById('prev-btn').disabled = page === 0;
-      document.getElementById('next-btn').disabled = result.isLast;
-
-      const nums = document.getElementById('page-nums');
-      nums.innerHTML = '';
-      const tp    = result.totalPages;
-      const range = [...new Set([0, page-1, page, page+1, tp-1])].filter(n => n >= 0 && n < tp);
-      range.forEach((n, i) => {
-        if (i > 0 && range[i] - range[i-1] > 1) {
-          const s = document.createElement('span');
-          s.textContent = '…';
-          s.style.cssText = 'padding:0 .2rem;color:var(--gray-400);';
-          nums.appendChild(s);
-        }
-        const b = document.createElement('button');
-        b.className = 'page-btn' + (n === page ? ' active' : '');
-        b.textContent = n + 1;
-        b.onclick = () => load(n);
-        nums.appendChild(b);
-      });
-
+      sessionStorage.setItem('cp_admin_complaints', JSON.stringify(result));
+      renderComplaintsTable(result);
     } catch(e) {
-      document.getElementById('loading').classList.add('hidden');
-      showToast('Failed to load complaints: ' + e.message, 'error');
+      if (!isBackground) {
+        document.getElementById('loading').classList.add('hidden');
+        showToast('Failed to load complaints: ' + e.message, 'error');
+      }
     }
+  }
+
+  function renderComplaintsTable(result) {
+    totalPages        = result.totalPages || 1;
+    currentComplaints = result.items || [];
+
+    document.getElementById('loading').classList.add('hidden');
+
+    if (!currentComplaints.length) {
+      document.getElementById('empty').classList.remove('hidden');
+      document.getElementById('table-wrap').classList.add('hidden');
+      document.getElementById('pagination').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('empty').classList.add('hidden');
+    document.getElementById('table-wrap').classList.remove('hidden');
+    document.getElementById('tbody').innerHTML = currentComplaints.map(c => {
+      const fullImgUrl = getImageUrl(c.image_path);
+      return `
+      <tr>
+        <td style="font-size:.78rem;color:var(--gray-400);font-weight:600;">#${c.id}</td>
+        <td class="td-en">${escapeHtml(c.student_en_number)}</td>
+        <td style="white-space:nowrap;font-size:.85rem;">${escapeHtml(c.student_name || '—')}</td>
+        <td><span style="display:flex;align-items:center;gap:.3rem;white-space:nowrap;">
+          ${categoryIcon(c.category)}<span style="font-size:.83rem;">${escapeHtml(c.category)}</span>
+        </span></td>
+        <td class="td-desc"><div class="td-desc-text">${escapeHtml(c.description)}</div></td>
+        <td>
+          ${c.image_path
+            ? `<img src="${escapeHtml(fullImgUrl)}" style="width:46px;height:34px;object-fit:cover;border-radius:4px;border:1px solid var(--gray-100);cursor:pointer;"
+                 onclick="viewImg('${escapeHtml(fullImgUrl)}')" alt="img"/>`
+            : `<span style="color:var(--gray-400);font-size:.76rem;">None</span>`}
+        </td>
+        <td>
+          <select class="select-status" onchange="updateStatus(${c.id}, this.value)">
+            <option value="Pending"     ${c.status==='Pending'     ? 'selected':''}>Pending</option>
+            <option value="In_Progress" ${c.status==='In_Progress' ? 'selected':''}>In Progress</option>
+            <option value="Resolved"    ${c.status==='Resolved'    ? 'selected':''}>Resolved</option>
+          </select>
+        </td>
+        <td style="white-space:nowrap;font-size:.78rem;color:var(--gray-600);">${formatDate(c.created_at)}</td>
+        <td>
+          <div class="action-group">
+            <button class="btn btn-outline btn-sm" onclick="viewDetailById(${c.id})">View</button>
+            <button class="btn btn-danger btn-sm"  onclick="askDelete(${c.id})">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+    }).join('');
+
+    // Pagination
+    const pg = document.getElementById('pagination');
+    if (result.totalPages <= 1) { pg.style.display = 'none'; return; }
+    pg.style.display = 'flex';
+
+    const start = currentPage * 10 + 1;
+    const end   = Math.min((currentPage + 1) * 10, result.total || 0);
+    document.getElementById('page-info').textContent = `Showing ${start}–${end} of ${result.total || 0}`;
+    document.getElementById('prev-btn').disabled = currentPage === 0;
+    document.getElementById('next-btn').disabled = result.isLast;
+
+    const nums = document.getElementById('page-nums');
+    nums.innerHTML = '';
+    const tp    = result.totalPages || 1;
+    const range = [...new Set([0, currentPage-1, currentPage, currentPage+1, tp-1])].filter(n => n >= 0 && n < tp);
+    range.forEach((n, i) => {
+      if (i > 0 && range[i] - range[i-1] > 1) {
+        const s = document.createElement('span');
+        s.textContent = '…';
+        s.style.cssText = 'padding:0 .2rem;color:var(--gray-400);';
+        nums.appendChild(s);
+      }
+      const b = document.createElement('button');
+      b.className = 'page-btn' + (n === currentPage ? ' active' : '');
+      b.textContent = n + 1;
+      b.onclick = () => load(n);
+      nums.appendChild(b);
+    });
   }
 
   document.getElementById('prev-btn').onclick = () => { if (currentPage > 0) load(currentPage - 1); };
@@ -448,6 +530,8 @@
   async function updateStatus(id, status) {
     try {
       await ComplaintAPI.updateStatus(id, status);
+      sessionStorage.removeItem('cp_admin_complaints');
+      sessionStorage.removeItem('cp_admin_stats');
       showToast('Status updated successfully', 'success');
       loadStats();
     } catch(e) {
@@ -466,6 +550,8 @@
     confirmDeleteBtn.textContent = 'Deleting...';
     try {
       await ComplaintAPI.delete(deleteId);
+      sessionStorage.removeItem('cp_admin_complaints');
+      sessionStorage.removeItem('cp_admin_stats');
       closeModal('del-modal');
       showToast('Complaint deleted successfully', 'success');
       loadStats();
@@ -520,24 +606,29 @@
   }
 
   // ── Students Logic ────────────────────────────────────────────
-  async function loadStudents() {
+  async function loadStudents(isBackground = false) {
     const loadingEl = document.getElementById('students-loading');
     const tableWrap = document.getElementById('students-table-wrap');
     const emptyEl   = document.getElementById('students-empty');
 
-    loadingEl.classList.remove('hidden');
-    tableWrap.classList.add('hidden');
-    emptyEl.classList.add('hidden');
+    if (!isBackground) {
+      loadingEl.classList.remove('hidden');
+      tableWrap.classList.add('hidden');
+      emptyEl.classList.add('hidden');
+    }
 
     try {
       allStudents = await StudentAPI.getAll();
       loadingEl.classList.add('hidden');
       document.getElementById('tab-students-badge').textContent = allStudents.length;
+      sessionStorage.setItem('cp_admin_students', JSON.stringify(allStudents));
 
       renderStudents(allStudents);
     } catch(err) {
-      loadingEl.classList.add('hidden');
-      showToast('Failed to load students: ' + err.message, 'error');
+      if (!isBackground) {
+        loadingEl.classList.add('hidden');
+        showToast('Failed to load students: ' + err.message, 'error');
+      }
     }
   }
 
@@ -612,6 +703,7 @@
 
     try {
       await StudentAPI.addStudent({ enNumber, name, department, year });
+      sessionStorage.removeItem('cp_admin_students');
       closeModal('add-student-modal');
       showToast(`Student ${enNumber} added successfully`, 'success');
       enEl.value = '';
@@ -697,6 +789,7 @@
 
     try {
       const res = await StudentAPI.bulkAdd(parsed);
+      sessionStorage.removeItem('cp_admin_students');
       okEl.textContent = `✅ Successfully inserted ${res.inserted} students (Skipped duplicates: ${res.skipped}).`;
       okEl.style.display = 'block';
       showToast(`Bulk import complete: ${res.inserted} added.`, 'success');

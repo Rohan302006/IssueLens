@@ -209,6 +209,9 @@
 
     try {
       await ComplaintAPI.submit({ category, description, imageFile: selectedFile });
+      // Invalidate student dashboard cache so fresh complaints are fetched
+      sessionStorage.removeItem('cp_my_complaints');
+      sessionStorage.removeItem('cp_my_stats');
       okEl.textContent = '✅ Complaint submitted successfully! Redirecting…';
       okEl.classList.add('show');
       setTimeout(() => location.href = 'student-dashboard.html', 1500);

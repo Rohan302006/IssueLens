@@ -105,6 +105,7 @@ const Auth = {
   },
 
   async logout() {
+    sessionStorage.clear();
     return apiFetch('/auth/logout', { method: 'POST' });
   },
 };
