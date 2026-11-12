@@ -176,7 +176,8 @@ IssueLens/
 │   ├── 04-submit-complaint.png
 │   ├── 05-admin-login.png
 │   ├── 06-admin-dashboard.png
-│   └── 07-complaint-detail-modal.png
+│   ├── 07-complaint-detail-modal.png
+│   └── 08-admin-students-tab.png
 │
 ├── .env                       # Root environment file (mirrored for root npm commands)
 ├── .env.example               # Root template for environment variables
@@ -450,16 +451,16 @@ For public testing, evaluation, and GitHub demonstration, pre-configured test ac
 
 ---
 
-### 3. Administrator Control Center & Evidence Inspection
-> High-level resolution analytics, keyword search, inline status dropdowns, zoomable photographic evidence inspection, and safe deletion.
+### 3. Administrator Control Center & Student Directory
+> High-level resolution analytics, keyword search, inline status dropdowns, zoomable photographic evidence inspection, safe deletion, and campus student directory management with bulk ingestion.
 
-| Administrator Login Portal | Admin Management Control Room |
+| Administrator Login Portal | Admin Complaints Control Room |
 | :---: | :---: |
 | ![Admin Login](screenshots/05-admin-login.png) | ![Admin Dashboard](screenshots/06-admin-dashboard.png) |
 
-| Interactive Grievance & Photographic Evidence Inspection Modal |
-| :---: |
-| ![Complaint Detail & Evidence Modal](screenshots/07-complaint-detail-modal.png) |
+| Interactive Grievance Evidence Modal | Enrolled Students Directory & Management |
+| :---: | :---: |
+| ![Complaint Detail & Evidence Modal](screenshots/07-complaint-detail-modal.png) | ![Enrolled Students Directory](screenshots/08-admin-students-tab.png) |
 
 ---
 

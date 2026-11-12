@@ -18,7 +18,7 @@ function resolveApiBase() {
 const API_BASE = resolveApiBase();
 
 // ─── Core fetch wrapper ───────────────────────────────────────
-// Sends JSON requests, handles credentials and errors uniformly.
+// Sends JSON requests, handles credentials, timeouts, and errors uniformly.
 async function apiFetch(url, options = {}) {
   const defaultOpts = {
     credentials: 'include',          // send/receive cookies (session)
@@ -30,11 +30,24 @@ async function apiFetch(url, options = {}) {
     delete defaultOpts.headers['Content-Type'];
   }
 
+  // 30-second timeout controller (allows Neon cold-start wakeups without infinite hang)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), options.timeout || 30000);
+
   let res;
   try {
-    res = await fetch(API_BASE + url, { ...defaultOpts, ...options });
+    res = await fetch(API_BASE + url, {
+      ...defaultOpts,
+      ...options,
+      signal: controller.signal,
+    });
   } catch (netErr) {
+    if (netErr.name === 'AbortError') {
+      throw new Error('Request timed out. The server or database may be starting up; please try again in a few seconds.');
+    }
     throw new Error('Cannot connect to server. Ensure your backend server is running on port 5000.');
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   let data = {};
@@ -150,6 +163,32 @@ const ComplaintAPI = {
   // Admin: delete a complaint
   async delete(id) {
     return apiFetch(`/complaints/${id}`, { method: 'DELETE' });
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  Student API (Admin endpoints for managing campus students)
+// ═══════════════════════════════════════════════════════════════
+const StudentAPI = {
+  // Admin: get all registered students
+  async getAll() {
+    return apiFetch('/students');
+  },
+
+  // Admin: add a single student
+  async addStudent({ enNumber, name, department, year }) {
+    return apiFetch('/students', {
+      method: 'POST',
+      body:   JSON.stringify({ enNumber, name, department, year }),
+    });
+  },
+
+  // Admin: bulk insert students
+  async bulkAdd(students) {
+    return apiFetch('/students/bulk', {
+      method: 'POST',
+      body:   JSON.stringify({ students }),
+    });
   },
 };
 
