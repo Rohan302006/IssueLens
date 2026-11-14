@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Student Registration — Campus Portal</title>
+  <title>Student Enrollment Notice — Campus Portal</title>
   <link rel="stylesheet" href="../css/styles.css"/>
 </head>
 <body>
@@ -11,75 +11,41 @@
 
   <!-- Hero Section -->
   <div class="login-hero">
-    <div class="hero-badge">🎓 Student Registration</div>
-    <h1 class="hero-title">Create Your<br><em>Student Account</em></h1>
-    <p class="hero-desc">Join your campus grievance and facility resolution network. Report maintenance issues with photo evidence and track resolution in real time.</p>
+    <div class="hero-badge">🎓 Institutional Enrollment</div>
+    <h1 class="hero-title">Centralized<br><em>Student Access</em></h1>
+    <p class="hero-desc">To maintain data integrity and verified student accountability, student accounts are enrolled centrally by campus administration.</p>
     <div class="hero-features">
+      <div class="feature-item"><span class="feature-dot"></span>Pre-enrolled institutional access via EN number</div>
       <div class="feature-item"><span class="feature-dot"></span>Submit maintenance complaints directly to administration</div>
       <div class="feature-item"><span class="feature-dot"></span>Attach photo evidence from mobile or desktop</div>
       <div class="feature-item"><span class="feature-dot"></span>Track real-time progress from Pending to Resolved</div>
-      <div class="feature-item"><span class="feature-dot"></span>Quick access anytime using only your EN number</div>
     </div>
   </div>
 
-  <!-- Registration Form -->
+  <!-- Notice Area -->
   <div class="login-form-area">
     <div class="login-card fade-in-up" style="max-width: 440px;">
       <div class="login-card-header">
-        <h2>Register as Student</h2>
-        <p>Enter your institutional details to register</p>
+        <h2>Self-Registration Disabled</h2>
+        <p>Student accounts are managed centrally by campus administration</p>
       </div>
 
-      <div id="err" class="alert alert-error"></div>
-      <div id="success" class="alert alert-success"></div>
-
-      <div class="form-group">
-        <label class="form-label" for="en">Enrollment Number (EN) *</label>
-        <input id="en" class="form-control" type="text" placeholder="e.g. EN24156683"
-               maxlength="20" autocomplete="off" spellcheck="false"/>
+      <div class="alert alert-error show" style="display:block;margin-bottom:1.5rem;line-height:1.6;">
+        <strong>Notice:</strong> Direct public student self-registration has been disabled to ensure institutional accountability. Students are pre-enrolled directly by campus administration via official academic records.
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="name">Full Name *</label>
-        <input id="name" class="form-control" type="text" placeholder="e.g. Rohan Hede"
-               maxlength="100" autocomplete="name"/>
+      <div style="background:var(--gray-50);border:1px solid var(--gray-100);border-radius:var(--radius-sm);padding:1.25rem;margin-bottom:1.5rem;">
+        <div style="font-weight:700;color:var(--navy);font-size:.9rem;margin-bottom:.35rem;">Already an Enrolled Student?</div>
+        <p style="font-size:.84rem;color:var(--gray-600);line-height:1.5;">
+          If you are an enrolled student at the institute, simply enter your official <strong>Enrollment Number (EN)</strong> on the login page to access your dashboard.
+        </p>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="dept">Department / Branch *</label>
-        <select id="dept" class="form-control">
-          <option value="">— Select your department —</option>
-          <option value="Computer Science">Computer Science</option>
-          <option value="Information Technology">Information Technology</option>
-          <option value="Electrical">Electrical</option>
-          <option value="Mechanical">Mechanical</option>
-          <option value="Civil">Civil</option>
-          <option value="Electronics">Electronics</option>
-          <option value="Chemical">Chemical</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label" for="year">Year of Study *</label>
-        <select id="year" class="form-control">
-          <option value="1">1st Year</option>
-          <option value="2">2nd Year</option>
-          <option value="3">3rd Year</option>
-          <option value="4">4th Year</option>
-        </select>
-      </div>
-
-      <button class="btn btn-primary" id="register-btn" style="margin-top: .5rem;">Create Account & Continue →</button>
+      <a href="index.html" class="btn btn-primary" style="width:100%;text-align:center;">Go to Student Login →</a>
 
       <div class="login-switch" style="margin-top: 1.25rem; border-top: 1px solid var(--gray-100); padding-top: 1.1rem;">
-        <p>Already registered?</p>
-        <a href="index.html">Sign In with EN →</a>
-      </div>
-
-      <div class="login-switch" style="margin-top: .6rem;">
-        <p>Campus Staff?</p>
-        <a href="admin-login.html">Go to Admin Login →</a>
+        <p>Need your EN Number enrolled?</p>
+        <span style="font-size:.84rem;color:var(--gray-600);">Please contact your departmental campus administration office.</span>
       </div>
 
       <div style="text-align: center; margin-top: 1.1rem;">
@@ -89,80 +55,5 @@
   </div>
 
 </div>
-
-<div id="toast-container"></div>
-<script src="../js/api.js"></script>
-<script>
-  // If already logged in as student, redirect directly to dashboard
-  (async () => {
-    const user = await Auth.me();
-    if (user && user.role === 'STUDENT') {
-      sessionStorage.setItem('cp_user', JSON.stringify(user));
-      location.href = 'student-dashboard.html';
-    }
-  })();
-
-  async function doRegister() {
-    const enNumber   = document.getElementById('en').value.trim();
-    const name       = document.getElementById('name').value.trim();
-    const department = document.getElementById('dept').value.trim();
-    const year       = document.getElementById('year').value;
-    const errEl      = document.getElementById('err');
-    const okEl       = document.getElementById('success');
-    const btn        = document.getElementById('register-btn');
-
-    errEl.classList.remove('show');
-    okEl.classList.remove('show');
-
-    if (!enNumber) {
-      errEl.textContent = 'Please enter your Enrollment Number (EN).';
-      errEl.classList.add('show');
-      document.getElementById('en').focus();
-      return;
-    }
-    if (!name) {
-      errEl.textContent = 'Please enter your Full Name.';
-      errEl.classList.add('show');
-      document.getElementById('name').focus();
-      return;
-    }
-    if (!department) {
-      errEl.textContent = 'Please select your Department.';
-      errEl.classList.add('show');
-      document.getElementById('dept').focus();
-      return;
-    }
-
-    btn.disabled    = true;
-    btn.textContent = 'Registering…';
-
-    try {
-      const data = await Auth.registerStudent({ enNumber, name, department, year });
-      sessionStorage.setItem('cp_user', JSON.stringify(data));
-      okEl.textContent = '✅ Registration successful! Redirecting to your dashboard…';
-      okEl.classList.add('show');
-      setTimeout(() => {
-        location.href = 'student-dashboard.html';
-      }, 1400);
-    } catch (err) {
-      const msg = err.message || 'Registration failed.';
-      errEl.innerHTML = escapeHtml(msg);
-      if (msg.toLowerCase().includes('already registered')) {
-        errEl.innerHTML += ' <a href="index.html" style="font-weight:700;text-decoration:underline;color:inherit;margin-left:4px;">Sign in here →</a>';
-      }
-      errEl.classList.add('show');
-      btn.disabled    = false;
-      btn.textContent = 'Create Account & Continue →';
-    }
-  }
-
-  document.getElementById('register-btn').addEventListener('click', doRegister);
-  ['en', 'name'].forEach(id => {
-    document.getElementById(id).addEventListener('keydown', e => {
-      if (e.key === 'Enter') doRegister();
-    });
-  });
-</script>
 </body>
 </html>
-

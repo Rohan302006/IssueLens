@@ -39,7 +39,7 @@ In traditional campus setups, students report infrastructure breakdowns (broken 
 ### 🌟 Core Highlights
 
 * **Zero-Password Student Authentication:** Students sign in instantly with their unique college **Enrollment Number (EN)** without the friction of passwords.
-* **On-Demand Student Registration:** Students not yet pre-enrolled can self-register directly through the portal with automatic duplicate validation.
+* **Institutional Access Control:** Open self-registration is restricted to prevent unauthorized issue filing; student directories are maintained centrally by campus administration with individual and bulk Excel/CSV/JSON ingestion.
 * **Photographic Evidence Uploads:** Supports direct image uploads (drag-and-drop or file selection) up to 5MB with client-side preview, stored permanently via **Cloudinary CDN** (with local disk fallback).
 * **Transparent Status Lifecycle:** Workflows transition cleanly across `Pending` $\rightarrow$ `In Progress` $\rightarrow$ `Resolved`.
 * **Centralized Admin Control Room:** Campus administrators filter complaints by category, status, or keyword, inspect high-resolution photos in interactive modals, update statuses inline, and perform instant safe deletions.
@@ -51,7 +51,7 @@ In traditional campus setups, students report infrastructure breakdowns (broken 
 
 ### 👩‍🎓 Student Portal
 * **EN-Based Login:** Case-insensitive Enrollment Number authentication.
-* **New Student Registration:** Dedicated registration portal (`/pages/register.html`) with duplicate EN conflict protection.
+* **Pre-Enrolled Institutional Verification:** Dedicated EN-based login checks verified college enrollment rosters to ensure only legitimate campus students can submit issues.
 * **Personalized Dashboard:** Live metric summary cards (Total, Pending, In Progress, Resolved) and personal complaint history.
 * **Complaint Submission Form:**
   * Categorization: `⚡ Electricity`, `💧 Water`, `🧹 Cleanliness`, `📶 WiFi`, `🏫 Classroom`, `🏠 Hostel`, and `📌 Other`.
@@ -67,7 +67,7 @@ In traditional campus setups, students report infrastructure breakdowns (broken 
 * **Responsive Inline Status Dropdown:** Update status on the fly with immediate badge reflection and metric updates.
 * **Photo Evidence Viewer:** View uploaded photos in an interactive inspection modal.
 * **Instant Safe Deletion:** Asynchronous complaint deletion with UI feedback (`"Deleting..."`), background media cleanup, and confirmation modals.
-* **Bulk Student Management:** Admin endpoints supporting single or bulk student ingestion.
+* **Student Directory & Deletion Management:** Review enrolled students, search records, add students individually, import in bulk via Excel spreadsheets (.xlsx, .xls) or CSV/JSON, and permanently delete students with two-step modal confirmation and cascade complaint removal.
 
 ---
 
@@ -83,6 +83,7 @@ In traditional campus setups, students report infrastructure breakdowns (broken 
 | **Database** | PostgreSQL (**Neon Serverless**) | 16+ | Cloud PostgreSQL with SSL, connection pooling, and autosuspend |
 | **Media Storage** | Cloudinary | 2.1.0 | Cloud image storage, CDN delivery, and automatic transformations |
 | **Authentication** | `express-session` + `bcryptjs` | 1.18.0 / 2.4.3 | Secure cookie sessions and salted password hashing |
+| **Spreadsheet Engine** | SheetJS (`xlsx`) | 0.18.5 | Server-side parsing of Excel (.xlsx, .xls) and CSV student rosters |
 | **File Handling** | `multer` | 1.4.5-lts.1 | In-memory stream buffer for image uploads |
 | **Hosting Target** | **Render** & **Vercel** | — | Render Web Service (Node.js API) & Vercel (Frontend Static CDN) |
 
@@ -142,9 +143,9 @@ In traditional campus setups, students report infrastructure breakdowns (broken 
 IssueLens/
 ├── backend/
 │   ├── routes/
-│   │   ├── auth.js            # Student EN login, registration, admin auth, session management
+│   │   ├── auth.js            # Student EN login, admin auth, session management
 │   │   ├── complaints.js      # Grievance CRUD, stats aggregation, Cloudinary upload & delete
-│   │   └── students.js        # Admin student lookup, manual addition, and bulk CSV/JSON ingestion
+│   │   └── students.js        # Admin student directory, Excel/CSV/JSON bulk import, and student deletion
 │   ├── uploads/               # Local disk storage folder for media (dev fallback)
 │   ├── .env                   # Backend environment configuration (git-ignored)
 │   ├── .env.example           # Environment template with documentation
@@ -160,13 +161,14 @@ IssueLens/
 │   ├── js/
 │   │   └── api.js             # Centralized API fetch wrapper, environment resolver, UI helpers
 │   ├── pages/
-│   │   ├── index.html         # Student portal login page
-│   │   ├── register.html      # New student self-registration portal
+│   │   ├── landing.html       # Public institutional landing page with dual portal gateways
+│   │   ├── index.html         # Student portal login page (EN authentication)
+│   │   ├── register.html      # Institutional access policy notice (self-registration disabled)
 │   │   ├── student-dashboard.html # Student complaints overview, metrics, and evidence viewer
 │   │   ├── submit-complaint.html  # Grievance submission form with drag-and-drop photo upload
 │   │   ├── admin-login.html   # Campus administrator login portal
 │   │   └── admin-dashboard.html   # Admin master management dashboard and resolution controls
-│   ├── index.html             # Static root entry point (auto-redirects to pages/index.html)
+│   ├── index.html             # Static root entry point (auto-redirects to pages/landing.html)
 │   └── vercel.json            # Vercel deployment routing and clean URL configuration
 │
 ├── screenshots/               # High-resolution application preview screenshots
@@ -328,7 +330,7 @@ npm start
 | Method | Endpoint | Access | Request Body | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `POST` | `/api/auth/student/login` | Public | `{"enNumber": "EN24991001"}` | Student authentication by Enrollment Number |
-| `POST` | `/api/auth/student/register`| Public | `{"enNumber": "EN24991005", "name": "...", "department": "...", "year": 2}` | Register a new student account |
+| `POST` | `/api/auth/student/register`| Restricted | — | Disabled by institutional policy (returns 403 Forbidden) |
 | `POST` | `/api/auth/admin/login` | Public | `{"username": "demo_admin", "password": "..."}` | Admin login (verifies bcrypt password hash) |
 | `GET` | `/api/auth/me` | Logged In | — | Returns current active session user |
 | `POST` | `/api/auth/logout` | Logged In | — | Clears session cookie and logs out |
@@ -350,8 +352,11 @@ npm start
 | Method | Endpoint | Access | Request Body | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/api/students` | Admin | — | Retrieve full directory of enrolled students |
+| `GET` | `/api/students/find/:query` | Admin | — | Lookup student by EN Number or full name before deletion |
 | `POST` | `/api/students` | Admin | `{"enNumber": "...", "name": "...", "department": "...", "year": 1}` | Manually insert a single student record |
-| `POST` | `/api/students/bulk` | Admin | `{"students": [{"enNumber": "...", "name": "..."}, ...]}` | Bulk insert multiple students in one batch |
+| `POST` | `/api/students/bulk` | Admin | `{"students": [{"enNumber": "...", "name": "..."}, ...]}` | Bulk insert student array via JSON or CSV text |
+| `POST` | `/api/students/upload-excel`| Admin | `multipart/form-data`: `file` (.xlsx, .xls, .csv) | Bulk upload spreadsheet file with column auto-mapping |
+| `DELETE`| `/api/students/:identifier` | Admin | — | Permanently delete student by EN, ID, or name & cascade grievances |
 
 ### 4. Health Check Endpoint
 

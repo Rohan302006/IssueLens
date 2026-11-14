@@ -53,79 +53,14 @@ router.post('/student/login', async (req, res) => {
   }
 });
 
-// ── Student Registration ──────────────────────────────────────
+// ── Student Registration (Disabled by Institutional Policy) ───
 // POST /api/auth/student/register
-// Body: { enNumber, name, department, year }
-router.post('/student/register', async (req, res) => {
-  try {
-    const { enNumber, name, department, year } = req.body;
-
-    if (!enNumber || !enNumber.trim()) {
-      return res.status(400).json({ error: 'Enrollment Number is required.' });
-    }
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'Full Name is required.' });
-    }
-    if (!department || !department.trim()) {
-      return res.status(400).json({ error: 'Please select your department.' });
-    }
-    const parsedYear = parseInt(year, 10);
-    if (!parsedYear || parsedYear < 1 || parsedYear > 5) {
-      return res.status(400).json({ error: 'Please select a valid year of study.' });
-    }
-
-    const formattedEn = enNumber.trim().toUpperCase();
-
-    // Check if student with this EN number already exists
-    const existing = await db.query(
-      'SELECT id FROM students WHERE UPPER(en_number) = $1',
-      [formattedEn]
-    );
-
-    if (existing.rows.length > 0) {
-      return res.status(409).json({
-        error: `Enrollment Number "${formattedEn}" is already registered. Please sign in instead.`,
-      });
-    }
-
-    // Insert new student into PostgreSQL
-    const { rows } = await db.query(
-      `INSERT INTO students (en_number, name, department, year)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, en_number, name, department, year`,
-      [formattedEn, name.trim(), department.trim(), parsedYear]
-    );
-
-    const student = rows[0];
-
-    // Auto-login: save to session
-    req.session.user = {
-      role:       'STUDENT',
-      id:         student.id,
-      enNumber:   student.en_number,
-      name:       student.name,
-      department: student.department,
-      year:       student.year,
-    };
-
-    return res.status(201).json({
-      message:    'Registration successful',
-      role:       'STUDENT',
-      enNumber:   student.en_number,
-      name:       student.name,
-      department: student.department,
-      year:       student.year,
-    });
-
-  } catch (err) {
-    if (err.code === '23505') {
-      return res.status(409).json({
-        error: `Enrollment Number "${req.body.enNumber?.toUpperCase()}" is already registered. Please sign in instead.`,
-      });
-    }
-    console.error('Student registration error:', err);
-    return res.status(500).json({ error: 'Registration failed. Please try again.' });
-  }
+// Public self-registration is disabled to prevent unauthorized account creation.
+// All students must be enrolled centrally by campus administrators.
+router.post('/student/register', (req, res) => {
+  return res.status(403).json({
+    error: 'Student self-registration is disabled. Students must be enrolled by campus administration.',
+  });
 });
 
 // ── Admin Login ────────────────────────────────────────────────

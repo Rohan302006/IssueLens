@@ -176,6 +176,18 @@ const StudentAPI = {
     return apiFetch('/students');
   },
 
+  // Admin: search student by EN Number or Name (for deletion confirmation)
+  async findStudent(query) {
+    return apiFetch(`/students/find/${encodeURIComponent(query)}`);
+  },
+
+  // Admin: delete student by ID, EN Number, or Name
+  async deleteStudent(identifier) {
+    return apiFetch(`/students/${encodeURIComponent(identifier)}`, {
+      method: 'DELETE',
+    });
+  },
+
   // Admin: add a single student
   async addStudent({ enNumber, name, department, year }) {
     return apiFetch('/students', {
@@ -184,11 +196,21 @@ const StudentAPI = {
     });
   },
 
-  // Admin: bulk insert students
+  // Admin: bulk insert students (array of student objects)
   async bulkAdd(students) {
     return apiFetch('/students/bulk', {
       method: 'POST',
       body:   JSON.stringify({ students }),
+    });
+  },
+
+  // Admin: upload Excel spreadsheet (.xlsx, .xls) or CSV file
+  async uploadExcel(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiFetch('/students/upload-excel', {
+      method: 'POST',
+      body:   formData,
     });
   },
 };

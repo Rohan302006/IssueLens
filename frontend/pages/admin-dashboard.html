@@ -142,12 +142,13 @@
               <span class="search-icon">🔍</span>
               <input type="text" id="search-students" class="form-control" placeholder="Search EN, name, department…"/>
             </div>
+            <button class="btn btn-danger btn-sm" onclick="openDeleteStudentModal()">🗑️ Delete Student</button>
             <button class="btn btn-accent btn-sm" onclick="openModal('add-student-modal')">＋ Add Student</button>
             <button class="btn btn-outline btn-sm" onclick="openModal('bulk-student-modal')">📥 Bulk Import</button>
           </div>
         </div>
 
-        <div id="students-loading" class="empty-state">
+        <div id="students-loading" class="empty-state hidden">
           <div class="empty-icon">⏳</div><h3 class="empty-title">Loading students directory…</h3>
         </div>
 
@@ -157,7 +158,7 @@
               <thead>
                 <tr>
                   <th>#</th><th>EN Number</th><th>Student Name</th><th>Department</th>
-                  <th>Year</th><th>Registered On</th>
+                  <th>Year</th>
                 </tr>
               </thead>
               <tbody id="students-tbody"></tbody>
@@ -256,6 +257,50 @@
   </div>
 </div>
 
+<!-- Delete Student Modal -->
+<div class="modal-overlay" id="delete-student-modal">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <h3 style="font-family:'DM Serif Display',serif;color:#DC2626;">Delete Student</h3>
+      <button class="modal-close" onclick="closeModal('delete-student-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="del-student-err" class="alert alert-error" style="display:none;margin-bottom:1rem;"></div>
+      
+      <!-- Step 1: Input EN Number or Name -->
+      <div id="del-student-step-1">
+        <p style="font-size:.88rem;color:var(--gray-600);margin-bottom:1rem;">
+          Enter the <strong>EN Number</strong> or <strong>Student Name</strong> to delete from the enrolled directory:
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="del-student-input">EN Number or Student Name *</label>
+          <input type="text" id="del-student-input" class="form-control" placeholder="e.g. EN24156683 or Rohan Hede" autocomplete="off"/>
+        </div>
+        <div style="display:flex;gap:.75rem;margin-top:1.5rem;">
+          <button class="btn btn-danger" id="del-student-search-btn" style="flex:1;" onclick="findStudentToDelete()">Find Student</button>
+          <button class="btn btn-outline" onclick="closeModal('delete-student-modal')" style="flex:1;">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Confirmation Prompt -->
+      <div id="del-student-step-2" style="display:none;">
+        <div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:var(--radius-sm);padding:1.1rem;margin-bottom:1.25rem;">
+          <div style="font-size:.76rem;font-weight:700;color:#DC2626;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem;">Confirmation Required</div>
+          <p id="del-student-confirm-msg" style="font-size:1.02rem;color:var(--navy);font-weight:700;line-height:1.45;"></p>
+          <div id="del-student-meta" style="font-size:.84rem;color:var(--gray-600);margin-top:.6rem;padding-top:.6rem;border-top:1px dashed #FECACA;"></div>
+        </div>
+        <p style="font-size:.82rem;color:var(--gray-600);line-height:1.5;margin-bottom:1.5rem;">
+          ⚠️ This student will be permanently deleted from the database. They will <strong>not</strong> be able to log in with this EN Number later.
+        </p>
+        <div style="display:flex;gap:.75rem;">
+          <button class="btn btn-danger" id="del-student-confirm-btn" style="flex:1;" onclick="executeDeleteStudent()">Confirm to Delete Student</button>
+          <button class="btn btn-outline" onclick="resetDeleteStudentModal()" style="flex:1;">Back</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Bulk Student Import Modal -->
 <div class="modal-overlay" id="bulk-student-modal">
   <div class="modal" style="max-width:540px;">
@@ -267,17 +312,36 @@
       <div id="bulk-student-err" class="alert alert-error" style="display:none;margin-bottom:1rem;"></div>
       <div id="bulk-student-ok"  class="alert alert-success" style="display:none;margin-bottom:1rem;"></div>
 
-      <p style="font-size:.85rem;color:var(--gray-600);margin-bottom:.75rem;">
+      <!-- Excel File Upload Section -->
+      <div style="background:var(--gray-50);border:1.5px dashed var(--gray-200);border-radius:var(--radius-sm);padding:1.2rem;margin-bottom:1.25rem;text-align:center;">
+        <div style="font-size:1.5rem;margin-bottom:.25rem;">📊</div>
+        <div style="font-size:.88rem;font-weight:700;color:var(--navy);margin-bottom:.25rem;">Import via Excel Sheet (.xlsx, .xls) or CSV</div>
+        <div style="font-size:.76rem;color:var(--gray-400);margin-bottom:.85rem;">Expected columns: EN Number, Student Name, Department, Year</div>
+        
+        <input type="file" id="bulk-excel-file" accept=".xlsx, .xls, .csv" style="display:none;" onchange="handleExcelFileSelect(this)"/>
+        <div style="display:flex;align-items:center;justify-content:center;gap:.6rem;flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('bulk-excel-file').click()">
+            📁 Choose Excel File
+          </button>
+          <span id="excel-file-name" style="font-size:.82rem;color:var(--teal-dark);font-weight:600;display:none;"></span>
+          <button type="button" class="btn btn-accent btn-sm" id="upload-excel-btn" style="display:none;" onclick="submitExcelUpload()">
+            Upload & Import Excel
+          </button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;">
+        <div style="flex:1;height:1px;background:var(--gray-100);"></div>
+        <span style="font-size:.74rem;color:var(--gray-400);font-weight:700;text-transform:uppercase;">OR PASTE CSV / JSON</span>
+        <div style="flex:1;height:1px;background:var(--gray-100);"></div>
+      </div>
+
+      <p style="font-size:.84rem;color:var(--gray-600);margin-bottom:.5rem;">
         Paste a <strong>JSON array</strong> or <strong>CSV text</strong> (one student per line):
       </p>
 
-      <div style="margin-bottom:.5rem;">
-        <button type="button" class="btn btn-outline btn-sm" style="font-size:.72rem;padding:.2rem .5rem;" onclick="insertSampleBulk('json')">Insert Sample JSON</button>
-        <button type="button" class="btn btn-outline btn-sm" style="font-size:.72rem;padding:.2rem .5rem;" onclick="insertSampleBulk('csv')">Insert Sample CSV</button>
-      </div>
-
       <div class="form-group">
-        <textarea id="bulk-text" class="form-control" rows="8" style="font-family:monospace;font-size:.82rem;"
+        <textarea id="bulk-text" class="form-control" rows="6" style="font-family:monospace;font-size:.82rem;"
           placeholder="CSV Format:&#10;EN24992001,John Doe,Computer Science,2&#10;EN24992002,Jane Smith,Information Technology,3&#10;&#10;Or JSON Array:&#10;[{&quot;enNumber&quot;:&quot;EN24992001&quot;,&quot;name&quot;:&quot;John Doe&quot;,&quot;department&quot;:&quot;Computer Science&quot;,&quot;year&quot;:2}]"></textarea>
       </div>
 
@@ -344,8 +408,16 @@
         allStudents = parsedStud;
         renderStudents(allStudents);
         document.getElementById('tab-students-badge').textContent = allStudents.length;
+        const sLoad = document.getElementById('students-loading');
+        if (sLoad) sLoad.classList.add('hidden');
       }
     } catch(e) {}
+  }
+
+  // Restore active tab if previously selected
+  const savedActiveTab = sessionStorage.getItem('cp_admin_active_tab');
+  if (savedActiveTab === 'students') {
+    switchTab('students');
   }
 
   // ── 2. Background Revalidation & Session Guard ───────────────────
@@ -388,6 +460,7 @@
 
   // ── Tab Switcher ──────────────────────────────────────────────
   function switchTab(tab) {
+    sessionStorage.setItem('cp_admin_active_tab', tab);
     const compBtn  = document.getElementById('tab-btn-complaints');
     const studBtn  = document.getElementById('tab-btn-students');
     const compPane = document.getElementById('tab-pane-complaints');
@@ -403,7 +476,13 @@
       compBtn.classList.remove('active');
       studPane.classList.remove('hidden');
       compPane.classList.add('hidden');
-      if (!allStudents.length) loadStudents(false);
+      const sLoad = document.getElementById('students-loading');
+      if (!allStudents.length) {
+        loadStudents(false);
+      } else {
+        if (sLoad) sLoad.classList.add('hidden');
+        loadStudents(true);
+      }
     }
   }
 
@@ -625,17 +704,20 @@
 
       renderStudents(allStudents);
     } catch(err) {
+      loadingEl.classList.add('hidden');
       if (!isBackground) {
-        loadingEl.classList.add('hidden');
         showToast('Failed to load students: ' + err.message, 'error');
       }
     }
   }
 
   function renderStudents(list) {
+    const loadingEl = document.getElementById('students-loading');
     const tableWrap = document.getElementById('students-table-wrap');
     const emptyEl   = document.getElementById('students-empty');
     const tbody     = document.getElementById('students-tbody');
+
+    if (loadingEl) loadingEl.classList.add('hidden');
 
     if (!list.length) {
       tableWrap.classList.add('hidden');
@@ -653,7 +735,6 @@
         <td style="font-size:.88rem;font-weight:500;">${escapeHtml(s.name)}</td>
         <td><span class="badge-dept">${escapeHtml(s.department)}</span></td>
         <td><span class="badge-year">Year ${escapeHtml(String(s.year))}</span></td>
-        <td style="white-space:nowrap;font-size:.8rem;color:var(--gray-600);">${formatDate(s.created_at)}</td>
       </tr>
     `).join('');
   }
@@ -720,17 +801,196 @@
     }
   }
 
-  // Insert sample data in bulk modal
-  function insertSampleBulk(type) {
-    const area = document.getElementById('bulk-text');
-    if (type === 'json') {
-      area.value = JSON.stringify([
-        { enNumber: "EN24992001", name: "Ravi Kumar", department: "Computer Science", year: 2 },
-        { enNumber: "EN24992002", name: "Pooja Sharma", department: "Information Technology", year: 3 },
-        { enNumber: "EN24992003", name: "Aditya Patil", department: "Mechanical", year: 1 }
-      ], null, 2);
-    } else {
-      area.value = "EN24992001,Ravi Kumar,Computer Science,2\nEN24992002,Pooja Sharma,Information Technology,3\nEN24992003,Aditya Patil,Mechanical,1";
+  // ── Delete Student Logic ──────────────────────────────────────
+  let studentTargetToDelete = null;
+
+  function openDeleteStudentModal() {
+    resetDeleteStudentModal();
+    openModal('delete-student-modal');
+    setTimeout(() => {
+      const input = document.getElementById('del-student-input');
+      if (input) input.focus();
+    }, 150);
+  }
+
+  function resetDeleteStudentModal() {
+    studentTargetToDelete = null;
+    const errEl = document.getElementById('del-student-err');
+    if (errEl) errEl.style.display = 'none';
+    const s1 = document.getElementById('del-student-step-1');
+    const s2 = document.getElementById('del-student-step-2');
+    if (s1) s1.style.display = 'block';
+    if (s2) s2.style.display = 'none';
+    const input = document.getElementById('del-student-input');
+    if (input) input.value = '';
+    const btn = document.getElementById('del-student-confirm-btn');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Confirm to Delete Student';
+    }
+  }
+
+  async function findStudentToDelete() {
+    const input = document.getElementById('del-student-input');
+    const errEl = document.getElementById('del-student-err');
+    const searchBtn = document.getElementById('del-student-search-btn');
+    const q = input.value.trim();
+
+    errEl.style.display = 'none';
+
+    if (!q) {
+      errEl.textContent = 'Please enter an EN Number or Student Name.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    searchBtn.disabled = true;
+    searchBtn.textContent = 'Searching…';
+
+    try {
+      // 1. Look in cached in-memory list first for instant response
+      let match = allStudents.find(s =>
+        s.en_number.toUpperCase() === q.toUpperCase() ||
+        s.name.toLowerCase() === q.toLowerCase()
+      );
+
+      // 2. If not found in cache, search backend
+      if (!match) {
+        const results = await StudentAPI.findStudent(q);
+        if (results && results.length > 0) {
+          match = results[0];
+        }
+      }
+
+      if (!match) {
+        throw new Error(`No student found matching "${q}".`);
+      }
+
+      studentTargetToDelete = match;
+
+      // Switch to Step 2 confirmation
+      document.getElementById('del-student-step-1').style.display = 'none';
+      document.getElementById('del-student-step-2').style.display = 'block';
+
+      // Required confirmation format: "Confirm to delete student " followed by student name or EN number
+      document.getElementById('del-student-confirm-msg').textContent =
+        `Confirm to delete student ${match.name} (${match.en_number})?`;
+
+      document.getElementById('del-student-meta').innerHTML = `
+        <strong>EN Number:</strong> ${escapeHtml(match.en_number)} &nbsp;|&nbsp;
+        <strong>Department:</strong> ${escapeHtml(match.department)} &nbsp;|&nbsp;
+        <strong>Year:</strong> Year ${escapeHtml(String(match.year))}
+      `;
+
+    } catch(err) {
+      errEl.textContent = err.message || 'Student not found.';
+      errEl.style.display = 'block';
+    } finally {
+      searchBtn.disabled = false;
+      searchBtn.textContent = 'Find Student';
+    }
+  }
+
+  async function executeDeleteStudent() {
+    if (!studentTargetToDelete) return;
+    const btn = document.getElementById('del-student-confirm-btn');
+    const errEl = document.getElementById('del-student-err');
+
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+    errEl.style.display = 'none';
+
+    try {
+      await StudentAPI.deleteStudent(studentTargetToDelete.en_number || studentTargetToDelete.id);
+
+      // Clear local caches
+      sessionStorage.removeItem('cp_admin_students');
+      sessionStorage.removeItem('cp_admin_complaints');
+      sessionStorage.removeItem('cp_admin_stats');
+
+      // Update in-memory list and re-render
+      allStudents = allStudents.filter(s => s.en_number !== studentTargetToDelete.en_number && s.id !== studentTargetToDelete.id);
+      renderStudents(allStudents);
+      document.getElementById('tab-students-badge').textContent = allStudents.length;
+
+      closeModal('delete-student-modal');
+      showToast(`Student ${studentTargetToDelete.name} (${studentTargetToDelete.en_number}) deleted successfully.`, 'success');
+
+      // Refresh in background
+      loadStats();
+      loadStudents(true);
+
+    } catch(err) {
+      errEl.textContent = err.message || 'Failed to delete student.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Confirm to Delete Student';
+    }
+  }
+
+  // ── Excel Upload Logic ─────────────────────────────────────────
+  let selectedExcelFile = null;
+
+  function handleExcelFileSelect(input) {
+    const file = input.files && input.files[0];
+    const nameEl = document.getElementById('excel-file-name');
+    const btn = document.getElementById('upload-excel-btn');
+    const errEl = document.getElementById('bulk-student-err');
+    const okEl  = document.getElementById('bulk-student-ok');
+
+    if (errEl) errEl.style.display = 'none';
+    if (okEl)  okEl.style.display  = 'none';
+
+    if (!file) {
+      selectedExcelFile = null;
+      if (nameEl) nameEl.style.display = 'none';
+      if (btn) btn.style.display = 'none';
+      return;
+    }
+
+    selectedExcelFile = file;
+    nameEl.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    nameEl.style.display = 'inline-block';
+    btn.style.display = 'inline-flex';
+  }
+
+  async function submitExcelUpload() {
+    if (!selectedExcelFile) return;
+
+    const btn   = document.getElementById('upload-excel-btn');
+    const errEl = document.getElementById('bulk-student-err');
+    const okEl  = document.getElementById('bulk-student-ok');
+
+    errEl.style.display = 'none';
+    okEl.style.display  = 'none';
+
+    btn.disabled = true;
+    btn.textContent = 'Importing Excel…';
+
+    try {
+      const res = await StudentAPI.uploadExcel(selectedExcelFile);
+      sessionStorage.removeItem('cp_admin_students');
+      okEl.textContent = `✅ ${res.message || `Successfully added ${res.inserted} students (Skipped duplicates: ${res.skipped}).`}`;
+      okEl.style.display = 'block';
+      showToast(`Excel import complete: ${res.inserted} added.`, 'success');
+
+      // Reset file input
+      const fileInp = document.getElementById('bulk-excel-file');
+      if (fileInp) fileInp.value = '';
+      const nameEl = document.getElementById('excel-file-name');
+      if (nameEl) nameEl.style.display = 'none';
+      btn.style.display = 'none';
+      selectedExcelFile = null;
+
+      await loadStudents();
+      setTimeout(() => closeModal('bulk-student-modal'), 2000);
+
+    } catch(err) {
+      errEl.textContent = err.message || 'Failed to import Excel file.';
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Upload & Import Excel';
     }
   }
 
@@ -746,7 +1006,7 @@
     okEl.style.display  = 'none';
 
     if (!raw) {
-      errEl.textContent = 'Please enter or paste student data.';
+      errEl.textContent = 'Please enter or paste student data, or choose an Excel file above.';
       errEl.style.display = 'block';
       return;
     }
@@ -815,6 +1075,8 @@
     if (bulkErr) bulkErr.style.display = 'none';
     const bulkOk = document.getElementById('bulk-student-ok');
     if (bulkOk) bulkOk.style.display = 'none';
+    const delErr = document.getElementById('del-student-err');
+    if (delErr) delErr.style.display = 'none';
   }
 
   document.querySelectorAll('.modal-overlay').forEach(el =>

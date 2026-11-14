@@ -593,6 +593,28 @@
 #hero-admin-cta:focus * {
     color: #ffffff !important;
 }
+
+/* Fix Student Login Button Hover Visibility */
+#nav-actions .btn-outline {
+    background-color: transparent !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    transition: all 0.3s ease;
+}
+
+#nav-actions .btn-outline:hover,
+#nav-actions .btn-outline:focus {
+    background-color: #e39e28 !important;
+    color: #000000 !important;
+    border-color: #e39b20 !important;
+    text-decoration: none;
+}
+
+/* Ensure nested text also remains visible */
+#nav-actions .btn-outline:hover *,
+#nav-actions .btn-outline:focus * {
+    color: #ffffff !important;
+}
   </style>
 </head>
 <body>
@@ -638,7 +660,7 @@
         </div>
 
         <p class="hero-sub-note">
-          New student on campus? <a href="register.html">Register your EN number here →</a>
+          Institutional access only. Students are pre-enrolled centrally by campus administration.
         </p>
       </div>
     </div>
@@ -806,7 +828,7 @@
         <div class="feature-card">
           <div class="feature-icon-box">👥</div>
           <h4>Student Directory Management</h4>
-          <p>Admins can view enrolled students, add new students individually, or bulk-import entire cohorts via CSV/JSON.</p>
+          <p>Admins can view enrolled students, delete accounts, add students individually, or bulk-import cohorts via Excel (.xlsx) / CSV / JSON.</p>
         </div>
 
         <div class="feature-card">
@@ -831,7 +853,7 @@
         <span class="section-tag">Choose Your Portal</span>
         <h2 class="section-title">Enter the Campus Portal</h2>
         <p class="section-desc">
-          Select your destination below to log in or register your account.
+          Select your destination below to sign in to your portal.
         </p>
       </div>
 
@@ -854,7 +876,7 @@
           <div>
             <a href="index.html" class="btn btn-primary" style="width:100%;margin-bottom:.75rem;">Continue to Student Login →</a>
             <div style="text-align:center;font-size:.84rem;color:var(--gray-600);">
-              New student? <a href="register.html" style="color:var(--teal);font-weight:700;text-decoration:underline;">Register here</a>
+              Pre-enrolled university access only · Managed by administration
             </div>
           </div>
         </div>
@@ -871,7 +893,7 @@
               <li><span>✓</span> Comprehensive complaint overview with global analytics</li>
               <li><span>✓</span> One-click status updates and photo inspection</li>
               <li><span>✓</span> Filter by category, status, and instant search</li>
-              <li><span>✓</span> Enrolled student roster and bulk CSV/JSON import</li>
+              <li><span>✓</span> Enrolled student roster with Excel, CSV & JSON import and student management</li>
             </ul>
           </div>
           <div>
@@ -906,7 +928,7 @@
           <h5>Student Access</h5>
           <ul class="footer-links">
             <li><a href="index.html">Student Login</a></li>
-            <li><a href="register.html">Student Registration</a></li>
+            <li><a href="index.html">Student Login (EN)</a></li>
             <li><a href="submit-complaint.html">Submit Complaint</a></li>
             <li><a href="student-dashboard.html">My Dashboard</a></li>
           </ul>
