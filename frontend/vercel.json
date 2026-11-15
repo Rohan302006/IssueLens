@@ -1,22 +1,13 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/", "destination": "/pages/landing.html" },
+    { "source": "/", "destination": "/pages/landing" },
     { "source": "/api/:match*", "destination": "https://issuelens-sbbr.onrender.com/api/:match*" },
-    { "source": "/student-dashboard", "destination": "/pages/student-dashboard.html" },
-    { "source": "/student-dashboard.html", "destination": "/pages/student-dashboard.html" },
-    { "source": "/admin-dashboard", "destination": "/pages/admin-dashboard.html" },
-    { "source": "/admin-dashboard.html", "destination": "/pages/admin-dashboard.html" },
-    { "source": "/submit-complaint", "destination": "/pages/submit-complaint.html" },
-    { "source": "/submit-complaint.html", "destination": "/pages/submit-complaint.html" },
-    { "source": "/admin-login", "destination": "/pages/admin-login.html" },
-    { "source": "/admin-login.html", "destination": "/pages/admin-login.html" },
-    { "source": "/login", "destination": "/pages/index.html" },
-    { "source": "/index", "destination": "/pages/index.html" },
-    { "source": "/index.html", "destination": "/pages/index.html" },
-    { "source": "/register", "destination": "/pages/register.html" },
-    { "source": "/register.html", "destination": "/pages/register.html" },
-    { "source": "/landing", "destination": "/pages/landing.html" },
-    { "source": "/landing.html", "destination": "/pages/landing.html" }
+    { "source": "/student-dashboard", "destination": "/pages/student-dashboard" },
+    { "source": "/admin-dashboard", "destination": "/pages/admin-dashboard" },
+    { "source": "/submit-complaint", "destination": "/pages/submit-complaint" },
+    { "source": "/admin-login", "destination": "/pages/admin-login" },
+    { "source": "/login", "destination": "/pages/index" },
+    { "source": "/register", "destination": "/pages/register" }
   ]
 }
