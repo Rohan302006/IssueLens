@@ -1,6 +1,7 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/", "destination": "/pages/landing.html" }
+    { "source": "/", "destination": "/pages/landing.html" },
+    { "source": "/api/:match*", "destination": "https://issuelens-sbbr.onrender.com/api/:match*" }
   ]
 }
