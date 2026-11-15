@@ -62,19 +62,25 @@ async function processImageUpload(fileBuffer, originalname) {
     process.env.CLOUDINARY_API_KEY &&
     process.env.CLOUDINARY_API_SECRET
   ) {
-    return new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'issuelens_complaints',
-          resource_type: 'image',
-        },
-        (error, result) => {
-          if (error) return reject(error);
-          resolve(result.secure_url);
-        }
-      );
-      uploadStream.end(fileBuffer);
-    });
+    try {
+      const cldUrl = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'issuelens_complaints',
+            resource_type: 'image',
+          },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result.secure_url);
+          }
+        );
+        uploadStream.end(fileBuffer);
+      });
+      return cldUrl;
+    } catch (cldErr) {
+      console.warn('⚠️ Cloudinary upload rejected/failed:', cldErr.message || cldErr);
+      console.warn('Falling back to local server disk storage so complaint is saved...');
+    }
   }
 
   // Local fallback: save to uploads folder
@@ -262,7 +268,7 @@ router.post('/', requireStudent, uploadMiddleware, async (req, res) => {
 
   } catch (err) {
     console.error('POST /complaints error:', err);
-    return res.status(500).json({ error: 'Failed to submit complaint.' });
+    return res.status(500).json({ error: err.message || 'Failed to submit complaint.' });
   }
 });
 
