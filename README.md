@@ -432,7 +432,7 @@ For public testing, evaluation, and GitHub demonstration, pre-configured test ac
 | **`EN24991003`** | Siddharth Rao | Mechanical Engineering | 1st Year |
 | **`EN24991004`** | Diya Joshi | Civil Engineering | 4th Year |
 
-*(You can also click **Register as Student** on the login page to create any custom student account instantly).*
+*(Institutional Access: Only students enrolled by campus administrators via single or bulk Excel/CSV/JSON import can sign in).*
 
 ---
 
@@ -497,28 +497,6 @@ The project is structured for immediate deployment on **Render** (Backend API) a
 4. Deploy! Vercel serves the static assets with high-speed global edge caching.
 
 ---
-
-## 🛠️ Troubleshooting & FAQs
-
-### 1. "Failed to fetch complaints" or Slow Initial Request
-* **Cause:** Neon PostgreSQL serverless compute automatically suspends (sleeps) after 5 minutes of inactivity on free tier plans. Waking up the compute node (cold start) takes 5 to 9 seconds.
-* **Solution:** The backend database pool (`backend/db.js`) is pre-configured with a 30-second connection timeout (`connectionTimeoutMillis: 30000`) and automatic transient query retry. Allow the serverless compute 5–8 seconds to wake up on the first query; subsequent queries will execute in under 300ms.
-
-### 2. "Connection terminated unexpectedly" with Neon PgBouncer
-* **Cause:** `node-postgres` (`pg`) does not support SCRAM channel binding when connecting through PgBouncer poolers.
-* **Solution:** Ensure `&channel_binding=require` is removed from your `DATABASE_URL`. `backend/db.js` automatically sanitizes connection strings on startup.
-
-### 3. Admin Deletion Takes 3–4 Seconds or Freezes
-* **Cause:** Outdated backend code previously blocked the HTTP response awaiting Cloudinary API destruction.
-* **Solution:** Upgrade to the latest `backend/routes/complaints.js`. Database records are now purged immediately and return HTTP 200 within ~200ms, while Cloudinary photo destruction proceeds in the background.
-
-### 4. Cross-Domain Session Cookie Loss on Vercel + Render
-* **Cause:** Modern browsers block third-party cookies unless `SameSite=None` and `Secure=true` are active.
-* **Solution:** When `NODE_ENV=production` is set on Render, `server.js` automatically applies `sameSite: 'none'` and `secure: true`, while `app.set('trust proxy', 1)` enables cookies across reverse proxies.
-
----
-
-
 
 ## 🛠️ Troubleshooting & FAQs
 

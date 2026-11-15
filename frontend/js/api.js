@@ -4,11 +4,26 @@
 // ═══════════════════════════════════════════════════════════════
 
 // ─── Resolve API Base URL ─────────────────────────────────────
-// Defaults to /api. If running frontend on Live Server (port 5500, etc.),
-// automatically connects to the backend server on port 5000.
+// 1. Explicit window.API_BASE override (e.g. injected by environment or HTML)
+// 2. <meta name="api-base" content="..."> tag in HTML head
+// 3. localStorage override (allows runtime configuration in browser console)
+// 4. Local dev with different port (e.g. Live Server on 5500 -> backend on 5000)
+// 5. Default to '/api' (for single-origin hosting or Vercel proxy rewrites)
 function resolveApiBase() {
-  if (window.API_BASE) return window.API_BASE;
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  if (typeof window !== 'undefined' && window.API_BASE) {
+    return window.API_BASE.replace(/\/+$/, '');
+  }
+  if (typeof document !== 'undefined') {
+    const metaApi = document.querySelector('meta[name="api-base"]');
+    if (metaApi && metaApi.content && !metaApi.content.startsWith('__')) {
+      return metaApi.content.replace(/\/+$/, '');
+    }
+  }
+  if (typeof localStorage !== 'undefined') {
+    const stored = localStorage.getItem('API_BASE') || localStorage.getItem('cp_api_base');
+    if (stored) return stored.replace(/\/+$/, '');
+  }
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   if (isLocal && window.location.port && window.location.port !== '5000') {
     return `http://${window.location.hostname}:5000/api`;
   }
