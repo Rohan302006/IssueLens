@@ -517,3 +517,17 @@ The project is structured for immediate deployment on **Render** (Backend API) a
 * **Solution:** When `NODE_ENV=production` is set on Render, `server.js` automatically applies `sameSite: 'none'` and `secure: true`, while `app.set('trust proxy', 1)` enables cookies across reverse proxies.
 
 ---
+## Copyright
+
+Copyright © 2026 Rohan Hede. All Rights Reserved.
+
+This repository is publicly available for portfolio
+showcase, viewing, and educational review purposes.
+
+No license is granted for reuse, modification,
+or redistribution of the source code.
+
+Original GitHub Repository:
+https://github.com/Rohan302006/IssueLens
+
+---
